@@ -1,4 +1,4 @@
-# Monitor Inteligente de Espacio
+# Monitor Inteligente de Temperatura
 
 Proyecto de nivel básico: un ESP32 con un sensor DHT11 reporta temperatura y
 humedad a un servidor. Un archivo de reglas, escrito en un mini-lenguaje
