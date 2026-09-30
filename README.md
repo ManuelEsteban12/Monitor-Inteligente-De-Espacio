@@ -101,8 +101,3 @@ Vas a ver en consola qué líneas se aceptaron y cuáles se reportaron como
 inválidas — así se prueba la Fase 4 de la metodología sin necesitar el
 hardware conectado.
 
-## Seguridad
-
-`config.h` (con tu WiFi real) nunca se sube a GitHub — ya está en
-`.gitignore`. Si accidentalmente lo subiste, cambia tu contraseña de WiFi y
-quítalo del historial antes de seguir.
