@@ -1,0 +1,18 @@
+# Archivo de prueba para el parser: mezcla reglas válidas e inválidas.
+# Úsalo para demostrar que una línea mal escrita se reporta y se ignora,
+# sin tumbar el resto del sistema (fase de pruebas de la metodología).
+
+# --- válidas ---
+si temperatura > 28 entonces notificar
+si humedad <= 25 entonces notificar("humedad muy baja")
+
+# --- decimales y espacios extra (deben seguir siendo válidas) ---
+si   temperatura   >   27.5   entonces   notificar
+SI HUMEDAD == 40 ENTONCES NOTIFICAR
+
+# --- inválidas a propósito ---
+si temperatura entonces notificar
+cuando temperatura > 28 notificar
+si presion > 1000 entonces notificar
+si temperatura >> 28 entonces notificar
+notificar si temperatura > 28

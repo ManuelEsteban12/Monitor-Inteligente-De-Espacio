@@ -1,0 +1,9 @@
+// Copia este archivo como "config.h" en la misma carpeta y rellena tus datos.
+// "config.h" real NO se sube a GitHub (está en .gitignore).
+
+#define WIFI_SSID     "nombre-de-tu-wifi"
+#define WIFI_PASSWORD "contraseña-de-tu-wifi"
+
+// IP local de la máquina donde corre el servidor Flask, puerto 5000.
+// Ejemplo: si tu compu tiene la IP 192.168.1.50, deja esto tal cual.
+#define SERVER_URL    "http://192.168.1.50:5000"

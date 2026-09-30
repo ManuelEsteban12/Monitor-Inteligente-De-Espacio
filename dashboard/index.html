@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitor Inteligente de Espacio</title>
+<style>
+  :root{
+    --bg:#F7F8F6;
+    --surface:#FFFFFF;
+    --fg:#181C19;
+    --muted:#5B5F5C;
+    --primary:#0F3D2E;
+    --primary-fg:#FBFCFA;
+    --accent:#B8732F;
+    --ok:#2E7D4F;
+    --alert:#B0402E;
+    --border:#E1E5E0;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--fg);
+    font-family:"Segoe UI", system-ui, sans-serif;
+    padding:24px;
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:24px;
+  }
+  h1{
+    font-size:22px;
+    margin:0 0 4px;
+  }
+  header p{
+    margin:0;
+    color:var(--muted);
+    font-size:13px;
+  }
+  #estado-conexion{
+    font-size:12px;
+    font-weight:600;
+    padding:6px 12px;
+    border-radius:20px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    color:var(--muted);
+  }
+  #estado-conexion.activo{ color:var(--ok); border-color:var(--ok); }
+  #estado-conexion.caido{ color:var(--alert); border-color:var(--alert); }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 2fr 1fr;
+    gap:20px;
+  }
+  @media (max-width: 760px){
+    .grid{ grid-template-columns: 1fr; }
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:20px;
+  }
+  .card h2{
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:var(--muted);
+    margin:0 0 16px;
+  }
+
+  .stats{
+    display:flex;
+    gap:24px;
+    margin-bottom:16px;
+  }
+  .stat .valor{
+    font-size:32px;
+    font-weight:700;
+    color:var(--primary);
+  }
+  .stat .etiqueta{
+    font-size:12px;
+    color:var(--muted);
+  }
+
+  .panel-alertas{
+    background:var(--primary);
+    color:var(--primary-fg);
+  }
+  .panel-alertas h2{ color:var(--accent); }
+  #lista-alertas{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  #lista-alertas li{
+    background:rgba(255,255,255,.08);
+    border-left:3px solid var(--accent);
+    padding:10px 12px;
+    border-radius:6px;
+    font-size:13px;
+  }
+  #sin-alertas{
+    color:rgba(255,255,255,.7);
+    font-size:13px;
+  }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  th, td{
+    text-align:left;
+    padding:6px 8px;
+    border-bottom:1px solid var(--border);
+  }
+  th{ color:var(--muted); font-weight:600; }
+
+  #grafica{
+    width:100%;
+    height:220px;
+    display:block;
+  }
+  .leyenda-grafica{
+    display:flex;
+    gap:20px;
+    margin-top:10px;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .punto{
+    display:inline-block;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    margin-right:6px;
+  }
+  .punto-temp{ background:var(--primary); }
+  .punto-hum{ background:var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Monitor Inteligente de Espacio</h1>
+    <p>Lecturas y alertas en tiempo real — ESP32 + DHT11</p>
+  </div>
+  <span id="estado-conexion">conectando…</span>
+</header>
+
+<div class="grid">
+  <div class="card">
+    <h2>Temperatura y humedad</h2>
+    <div class="stats">
+      <div class="stat">
+        <div class="valor" id="valor-temp">--°C</div>
+        <div class="etiqueta">Temperatura actual</div>
+      </div>
+      <div class="stat">
+        <div class="valor" id="valor-hum">--%</div>
+        <div class="etiqueta">Humedad actual</div>
+      </div>
+    </div>
+    <canvas id="grafica" width="640" height="220"></canvas>
+    <div class="leyenda-grafica">
+      <span><i class="punto punto-temp"></i> Temperatura (°C)</span>
+      <span><i class="punto punto-hum"></i> Humedad (%)</span>
+    </div>
+  </div>
+
+  <div class="card panel-alertas">
+    <h2>Alertas activas</h2>
+    <ul id="lista-alertas"></ul>
+    <p id="sin-alertas">Sin alertas por ahora.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+  <h2>Últimas lecturas</h2>
+  <table>
+    <thead>
+      <tr><th>Hora</th><th>Temperatura (°C)</th><th>Humedad (%)</th></tr>
+    </thead>
+    <tbody id="tabla-lecturas"></tbody>
+  </table>
+</div>
+
+<script>
+  // Cambia esto si tu servidor Flask corre en otra IP o puerto.
+  const SERVER_URL = "http://localhost:5000";
+  const INTERVALO_MS = 3000;
+  const MAX_PUNTOS_GRAFICA = 20;
+
+  const elEstado = document.getElementById("estado-conexion");
+  const elValorTemp = document.getElementById("valor-temp");
+  const elValorHum = document.getElementById("valor-hum");
+  const elListaAlertas = document.getElementById("lista-alertas");
+  const elSinAlertas = document.getElementById("sin-alertas");
+  const elTablaLecturas = document.getElementById("tabla-lecturas");
+
+  // Gráfica dibujada a mano con Canvas (sin librerías externas): así el
+  // dashboard funciona sin internet, algo importante para una demo en vivo.
+  const canvas = document.getElementById("grafica");
+  const ctx = canvas.getContext("2d");
+
+  function ajustarTamanoCanvas() {
+    const ancho = canvas.clientWidth || 640;
+    const alto = canvas.clientHeight || 220;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = ancho * dpr;
+    canvas.height = alto * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function dibujarLinea(valores, minimo, maximo, alto, ancho, padding, color) {
+    if (valores.length === 0) return;
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+
+    const pasoX = valores.length > 1 ? (ancho - padding * 2) / (valores.length - 1) : 0;
+    const rango = (maximo - minimo) || 1;
+
+    valores.forEach((valor, i) => {
+      const x = padding + i * pasoX;
+      const y = alto - padding - ((valor - minimo) / rango) * (alto - padding * 2);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // puntos
+    ctx.fillStyle = color;
+    valores.forEach((valor, i) => {
+      const x = padding + i * pasoX;
+      const y = alto - padding - ((valor - minimo) / rango) * (alto - padding * 2);
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  function dibujarGrafica(lecturas) {
+    ajustarTamanoCanvas();
+    const ancho = canvas.clientWidth || 640;
+    const alto = canvas.clientHeight || 220;
+    const padding = 28;
+
+    ctx.clearRect(0, 0, ancho, alto);
+
+    if (lecturas.length === 0) {
+      ctx.fillStyle = "#9CA39D";
+      ctx.font = "13px system-ui, sans-serif";
+      ctx.fillText("Todavía no hay lecturas del ESP32…", padding, alto / 2);
+      return;
+    }
+
+    const temps = lecturas.map(l => l.temperatura);
+    const hums = lecturas.map(l => l.humedad);
+
+    // líneas de referencia horizontales (grid sutil)
+    ctx.strokeStyle = "#E1E5E0";
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 3; i++) {
+      const y = padding + ((alto - padding * 2) / 3) * i;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(ancho - padding, y);
+      ctx.stroke();
+    }
+
+    const minimo = Math.min(...temps, ...hums) - 2;
+    const maximo = Math.max(...temps, ...hums) + 2;
+
+    dibujarLinea(temps, minimo, maximo, alto, ancho, padding, "#0F3D2E");
+    dibujarLinea(hums, minimo, maximo, alto, ancho, padding, "#B8732F");
+  }
+
+  function marcarConexion(activa) {
+    elEstado.textContent = activa ? "conectado" : "sin conexión con el servidor";
+    elEstado.className = activa ? "activo" : "caido";
+  }
+
+  let ultimasLecturas = [];
+
+  function actualizarLecturas(lecturas) {
+    ultimasLecturas = lecturas;
+
+    if (lecturas.length === 0) {
+      dibujarGrafica([]);
+      return;
+    }
+
+    const ultima = lecturas[lecturas.length - 1];
+    elValorTemp.textContent = ultima.temperatura.toFixed(1) + "°C";
+    elValorHum.textContent = ultima.humedad.toFixed(1) + "%";
+
+    const recientes = lecturas.slice(-MAX_PUNTOS_GRAFICA);
+    dibujarGrafica(recientes);
+
+    elTablaLecturas.innerHTML = lecturas
+      .slice(-8)
+      .reverse()
+      .map(l => `<tr><td>${l.hora}</td><td>${l.temperatura.toFixed(1)}</td><td>${l.humedad.toFixed(1)}</td></tr>`)
+      .join("");
+  }
+
+  function actualizarAlertas(alertas) {
+    if (alertas.length === 0) {
+      elListaAlertas.innerHTML = "";
+      elSinAlertas.style.display = "block";
+      return;
+    }
+    elSinAlertas.style.display = "none";
+    elListaAlertas.innerHTML = alertas
+      .map(a => `<li>${a.mensaje} <span style="opacity:.7">(línea ${a.linea_regla} del archivo de reglas)</span></li>`)
+      .join("");
+  }
+
+  async function actualizar() {
+    try {
+      const [resLecturas, resAlertas] = await Promise.all([
+        fetch(`${SERVER_URL}/lecturas`),
+        fetch(`${SERVER_URL}/alertas`),
+      ]);
+      const lecturas = await resLecturas.json();
+      const alertas = await resAlertas.json();
+
+      marcarConexion(true);
+      actualizarLecturas(lecturas);
+      actualizarAlertas(alertas);
+    } catch (error) {
+      marcarConexion(false);
+      console.error("No se pudo consultar el servidor:", error);
+    }
+  }
+
+  dibujarGrafica([]);
+  window.addEventListener("resize", () => dibujarGrafica(ultimasLecturas.slice(-MAX_PUNTOS_GRAFICA)));
+
+  actualizar();
+  setInterval(actualizar, INTERVALO_MS);
+</script>
+
+</body>
+</html>

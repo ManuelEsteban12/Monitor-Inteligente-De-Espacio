@@ -1,0 +1,8 @@
+# Reglas de ejemplo para el Monitor Inteligente de Espacio.
+# Formato: si <variable> <operador> <valor> entonces notificar[("mensaje")]
+# Variables disponibles: temperatura, humedad
+
+si temperatura > 28 entonces notificar
+si temperatura > 30 entonces notificar("temperatura alta, revisar ventilación")
+si humedad < 30 entonces notificar("aire muy seco")
+si humedad >= 80 entonces notificar("humedad excesiva")
