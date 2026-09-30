@@ -35,7 +35,7 @@ ESP32 + DHT11 --WiFi/HTTP--> Servidor Flask --lee-- reglas.txt
 ├── firmware/
 │   └── esp32_monitor/
 │       ├── esp32_monitor.ino
-│       └── config.h.example      # copiar a config.h y rellenar (no se sube)
+│       └── config.h.example      
 ├── servidor/
 │   ├── app.py                    # servidor Flask (endpoints)
 │   ├── parser.py                 # interpreta reglas.txt
